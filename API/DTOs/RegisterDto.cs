@@ -14,5 +14,7 @@ namespace API.DTOs
         public string Password { get; set; }
         [Required]
         public string Username { get; set; }
+        // [Required]
+        // public RoleType Role { get; set; }
     }
 }

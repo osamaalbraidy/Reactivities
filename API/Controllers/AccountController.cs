@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using API.DTOs;
+using API.Files;
 using API.Services;
+using Application.Interfaces;
 using Domain;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,16 +18,21 @@ namespace API.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly TokenService _tokenService;
-        public AccountController(UserManager<AppUser> userManager, TokenService tokenService)
+        private readonly IFileAccessor _fileAccessor;
+
+        public AccountController(UserManager<AppUser> userManager, TokenService tokenService, IFileAccessor fileAccessor)
         {
+            _fileAccessor = fileAccessor;
             _tokenService = tokenService;
             _userManager = userManager;
         }
+
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
-            var user = await _userManager.FindByEmailAsync(loginDto.Email);
+            var user = await _userManager.Users.Include(p => p.Photos)
+                .FirstOrDefaultAsync(x => x.Email == loginDto.Email);
 
             if (user == null) return Unauthorized();
 
@@ -37,6 +45,7 @@ namespace API.Controllers
 
             return Unauthorized();
         }
+
         [AllowAnonymous]
         [HttpPost("register")]
         public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
@@ -57,8 +66,9 @@ namespace API.Controllers
 
             if (result.Succeeded)
             {
-                CreateUserObject(user);
+                return CreateUserObject(user);
             }
+
             return BadRequest(result.Errors.Count() > 1 ? result.Errors : result.Errors.First());
         }
 
@@ -66,7 +76,9 @@ namespace API.Controllers
         [HttpGet]
         public async Task<ActionResult<UserDto>> GetCurrentUser()
         {
-            var user = await _userManager.FindByEmailAsync(User.FindFirstValue(ClaimTypes.Email));
+            var user = await _userManager.Users.Include(p => p.Photos)
+                .FirstOrDefaultAsync(x => x.Email == User.FindFirstValue(ClaimTypes.Email));
+
             return CreateUserObject(user);
         }
 
@@ -76,7 +88,7 @@ namespace API.Controllers
             {
                 Id = user.Id,
                 DisplayName = user.DisplayName,
-                Image = null,
+                Image = user?.Photos?.FirstOrDefault(x => x.IsMain)?.Url,
                 Token = _tokenService.CreateToken(user),
                 Username = user.UserName
             };

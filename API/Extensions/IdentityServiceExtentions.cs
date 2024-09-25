@@ -1,7 +1,9 @@
 using System.Text;
 using API.Services;
+using Application.Interfaces;
 using Domain;
 using Infrastructure.Security;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -40,9 +42,14 @@ namespace API.Extensions
                 {
                     policy.Requirements.Add(new IsHostRequirment());
                 });
+                // opt.AddPolicy("IsAdmin", policy =>
+                // {
+                //     policy.RequireRole("Admin");
+                // });
             });
             services.AddTransient<IAuthorizationHandler, IsHostRequirmentHandler>();
             services.AddScoped<TokenService>();
+            services.AddScoped<IFileAccessor, FileAccessor>();
 
             return services;
         }
