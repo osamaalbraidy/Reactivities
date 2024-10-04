@@ -1,25 +1,28 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Application.Core;
 using Application.Interfaces;
-using Domain;
+using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
 
-namespace Application.Activities
+namespace Application.Profiles
 {
-    public class Create
+    public class Edit
     {
         public class Command : IRequest<Result<Unit>>
         {
-            public Activity Activity { get; set; }
+            public string DisplayName { get; set; }
+            public string Bio { get; set; }
         }
 
         public class CommandValidator : AbstractValidator<Command>
         {
             public CommandValidator()
             {
-                RuleFor(x => x.Activity).SetValidator(new ActivityValidator());
+                RuleFor(x => x.DisplayName).NotEmpty().WithMessage("DisplayName is required");
             }
         }
 
@@ -32,29 +35,26 @@ namespace Application.Activities
                 _userAccessor = userAccessor;
                 _context = context;
             }
-
             public async Task<Result<Unit>> Handle(Command request, CancellationToken cancellationToken)
             {
                 var user = await _context.Users.FirstOrDefaultAsync(x =>
-                    x.UserName == _userAccessor.GetUsername());
+                x.UserName == _userAccessor.GetUsername());
 
-                var attendee = new ActivityAttendee
+                if (user == null)
                 {
-                    AppUser = user,
-                    Activity = request.Activity,
-                    IsHost = true
-                };
+                    return Result<Unit>.Failure("User not found");
+                }
 
-                request.Activity.Attendees.Add(attendee);
+                user.Bio = request.Bio ?? user.Bio;
+                user.DisplayName = request.DisplayName ?? user.DisplayName;
 
-                _context.Activities.Add(request.Activity);
+                var success = await _context.SaveChangesAsync() > 0;
 
-                var result = await _context.SaveChangesAsync() > 0;
+                if (success) return Result<Unit>.Success(Unit.Value);
 
-                if (!result) return Result<Unit>.Failure("Failed to create an activity");
-
-                return Result<Unit>.Success(Unit.Value);
+                return Result<Unit>.Failure("Problem updating profile");
             }
         }
+
     }
 }
