@@ -32,17 +32,23 @@ namespace Application.Profiles
             public async Task<Result<List<UserActivityDto>>> Handle(Query request, CancellationToken cancellationToken)
             {
                 var query = _context.ActivityAttendee
-                .Where(u => u.AppUser.UserName == request.Username)
-                .OrderBy(a => a.Activity.Date)
-                .ProjectTo<UserActivityDto>(_mapper.ConfigurationProvider)
-                .AsQueryable();
-                query = request.Predicate switch
+                    .Where(u => u.AppUser.UserName == request.Username)
+                    .OrderBy(a => a.Activity.Date)
+                    .ProjectTo<UserActivityDto>(_mapper.ConfigurationProvider)
+                    .AsQueryable();
+
+                switch (request.Predicate)
                 {
-                    "past" => query.Where(a => a.Date <= DateTime.Now),
-                    "hosting" => query.Where(a => a.HostUsername ==
-                    request.Username),
-                    _ => query.Where(a => a.Date >= DateTime.Now)
-                };
+                    case "past":
+                        query = query.Where(a => a.Date <= DateTime.Now);
+                        break;
+                    case "hosting":
+                        query = query.Where(a => a.HostUsername == request.Username);
+                        break;
+                    default:
+                        query = query.Where(a => a.Date >= DateTime.Now);
+                        break;
+                }
                 var activities = await query.ToListAsync();
                 return Result<List<UserActivityDto>>.Success(activities);
             }
